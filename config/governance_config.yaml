@@ -1,0 +1,174 @@
+# Data Governance Configuration File
+# Configure table-specific metadata, quality checks, and governance settings
+
+default_governance:
+  governance_level: INTERNAL
+  owner_team: DATA_ENGINEERING
+  critical_table: false
+  pii_present: false
+
+default_quality_checks:
+  check_duplicates: true
+  check_nulls: true
+  check_data_types: true
+  check_referential_integrity: true
+  check_outliers: true
+  check_freshness: true
+  check_patterns: true
+  max_data_age_days: 7
+  outlier_std_devs: 3
+
+# Example table configurations
+tables:
+  
+  CUSTOMERS:
+    governance:
+      governance_level: CONFIDENTIAL
+      owner_team: SALES_OPS
+      description: "Core customer master data"
+      critical_table: true
+      pii_present: true
+    quality_checks:
+      check_duplicates: true
+      check_nulls: true
+      non_nullable_columns:
+        - CUSTOMER_ID
+        - CUSTOMER_NAME
+        - EMAIL
+      data_type_rules:
+        CUSTOMER_ID: "NUMBER"
+        CUSTOMER_NAME: "VARCHAR"
+        EMAIL: "VARCHAR"
+        CREATED_AT: "TIMESTAMP_TZ"
+      numeric_columns:
+        - ANNUAL_REVENUE
+        - EMPLOYEE_COUNT
+      timestamp_column: "CREATED_AT"
+      max_data_age_days: 1
+      pattern_validation:
+        EMAIL: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+  
+  ORDERS:
+    governance:
+      governance_level: CONFIDENTIAL
+      owner_team: FINANCE
+      description: "Transaction order data"
+      critical_table: true
+      pii_present: false
+    quality_checks:
+      check_duplicates: true
+      check_nulls: true
+      non_nullable_columns:
+        - ORDER_ID
+        - CUSTOMER_ID
+        - ORDER_DATE
+        - ORDER_AMOUNT
+      data_type_rules:
+        ORDER_ID: "NUMBER"
+        CUSTOMER_ID: "NUMBER"
+        ORDER_AMOUNT: "NUMBER"
+        ORDER_DATE: "DATE"
+      numeric_columns:
+        - ORDER_AMOUNT
+        - DISCOUNT
+        - TAX_AMOUNT
+      foreign_keys:
+        CUSTOMER_ID: ["CUSTOMERS", "CUSTOMER_ID"]
+      timestamp_column: "ORDER_DATE"
+      max_data_age_days: 1
+  
+  PRODUCTS:
+    governance:
+      governance_level: INTERNAL
+      owner_team: PRODUCT_MANAGEMENT
+      description: "Product catalog and pricing"
+      critical_table: true
+      pii_present: false
+    quality_checks:
+      check_duplicates: true
+      check_nulls: true
+      non_nullable_columns:
+        - PRODUCT_ID
+        - PRODUCT_NAME
+        - SKU
+      data_type_rules:
+        PRODUCT_ID: "NUMBER"
+        PRODUCT_NAME: "VARCHAR"
+        PRICE: "NUMBER"
+      numeric_columns:
+        - PRICE
+        - COST
+        - STOCK_QUANTITY
+      timestamp_column: "LAST_UPDATED"
+      max_data_age_days: 7
+  
+  CUSTOMER_SEGMENTS:
+    governance:
+      governance_level: INTERNAL
+      owner_team: ANALYTICS
+      description: "Customer segmentation data"
+      critical_table: false
+      pii_present: false
+    quality_checks:
+      check_duplicates: true
+      check_nulls: true
+      non_nullable_columns:
+        - CUSTOMER_ID
+        - SEGMENT
+      foreign_keys:
+        CUSTOMER_ID: ["CUSTOMERS", "CUSTOMER_ID"]
+      timestamp_column: "SEGMENT_DATE"
+      max_data_age_days: 7
+  
+  FACT_SALES:
+    governance:
+      governance_level: CONFIDENTIAL
+      owner_team: FINANCE
+      description: "Sales fact table for analytics"
+      critical_table: true
+      pii_present: false
+    quality_checks:
+      check_duplicates: true
+      check_nulls: true
+      non_nullable_columns:
+        - SALE_ID
+        - CUSTOMER_ID
+        - PRODUCT_ID
+        - AMOUNT
+      numeric_columns:
+        - AMOUNT
+        - QUANTITY
+        - UNIT_PRICE
+      foreign_keys:
+        CUSTOMER_ID: ["CUSTOMERS", "CUSTOMER_ID"]
+        PRODUCT_ID: ["PRODUCTS", "PRODUCT_ID"]
+      timestamp_column: "SALE_DATE"
+      max_data_age_days: 1
+      outlier_std_devs: 3
+
+# Lineage configuration for ETL processes
+data_lineage:
+  FACT_SALES:
+    source_tables:
+      - ORDERS
+      - PRODUCTS
+      - CUSTOMERS
+    transformation: "Aggregated sales data from orders and product master"
+  
+  CUSTOMER_SEGMENTS:
+    source_tables:
+      - CUSTOMERS
+      - FACT_SALES
+    transformation: "Customer segmentation based on purchase behavior"
+
+# Compliance rules
+compliance:
+  pii_data_access:
+    - governance_level: RESTRICTED
+    - access_logging: true
+    - encryption_required: true
+  
+  critical_tables:
+    - backup_frequency_hours: 24
+    - change_audit: true
+    - access_approval_required: true

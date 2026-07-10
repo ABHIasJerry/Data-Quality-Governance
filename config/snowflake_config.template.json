@@ -1,0 +1,8 @@
+{
+  "user": "your_snowflake_user",
+  "password": "your_snowflake_password",
+  "account": "your_account_identifier",
+  "warehouse": "COMPUTE_WH",
+  "database": "ANALYTICS",
+  "schema": "PUBLIC"
+}
