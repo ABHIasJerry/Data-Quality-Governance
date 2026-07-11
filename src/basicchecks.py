@@ -3,13 +3,25 @@
 import snowflake.connector
 import pandas as pd
 import logging
+from dotenv import load_dotenv
+
+# Load variables from .env
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SnowflakeTableManager:
-    def __init__(self, connection_params):
-        self.conn = snowflake.connector.connect(**connection_params)
+    def __init__(self):
+        # Retrieve credentials from environment variables
+        self.conn = snowflake.connector.connect(
+            user=os.getenv("SNOWFLAKE_USER"),
+            password=os.getenv("SNOWFLAKE_PASSWORD"),
+            account=os.getenv("SNOWFLAKE_ACCOUNT"),
+            warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
+            database=os.getenv("SNOWFLAKE_DATABASE"),
+            schema=os.getenv("SNOWFLAKE_SCHEMA")
+        )
 
     def _execute_query(self, query):
         return pd.read_sql(query, self.conn)
@@ -66,16 +78,6 @@ class SnowflakeTableManager:
 
     def close(self):
         self.conn.close()
-
-# --- Example Usage ---
-config = {
-    "user": "YOUR_USER",
-    "password": "YOUR_PASSWORD",
-    "account": "YOUR_ACCOUNT",
-    "warehouse": "YOUR_WH",
-    "database": "YOUR_DB",
-    "schema": "YOUR_SCHEMA"
-}
 
 manager = SnowflakeTableManager(config)
 
