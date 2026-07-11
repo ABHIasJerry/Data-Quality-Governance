@@ -11,6 +11,9 @@ from openai import AsyncOpenAI
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+# Get the directory where chat_app.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Load variables from .env file
 load_dotenv()
 
@@ -22,6 +25,8 @@ client = AsyncOpenAI()
 server_params = StdioServerParameters(
     command="python", 
     args=["path/to/your/mcp_server.py"], 
+    # # This ensures it finds mcp-server.py regardless of your terminal location
+    # args=[os.path.join(BASE_DIR, "mcp-server.py")],
 )
 
 @cl.on_chat_start
