@@ -17,6 +17,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Load variables from .env file
 load_dotenv()
 
+# Initialize OpenAI 
 client = AsyncOpenAI()
 
 # 1. Configuration for your custom local MCP server
@@ -27,9 +28,13 @@ server_params = StdioServerParameters(
 
 @cl.on_chat_start
 async def start():
+    # 2. Establish persistent session for the chat duration
     transport = await stdio_client(server_params).__aenter__()
     session = await ClientSession(transport[0], transport[1]).__aenter__()
+    
     await session.initialize()
+    
+    # Store session in user_session for access in @on_message
     cl.user_session.set("mcp_session", session)
     await cl.Message(content="System Ready. Snowflake MCP Server Connected.").send()
 
@@ -38,8 +43,16 @@ async def main(message: cl.Message):
     session = cl.user_session.get("mcp_session")
     mcp_tools = await session.list_tools()
     
+    # Format tools for OpenAI
     openai_tools = [
-        {"type": "function", "function": {"name": tool.name, "description": tool.description, "parameters": tool.inputSchema}}
+        {
+            "type": "function",
+            "function": {
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.inputSchema,
+            },
+        }
         for tool in mcp_tools.tools
     ]
 
@@ -64,12 +77,18 @@ async def main(message: cl.Message):
             msg = response.choices[0].message
             messages.append(msg)
         
+        # Check for final response
         if not msg.tool_calls:
-            tokens_text = (
-                f"\n\n---\n**Total Token Usage:** {total_usage['total']} "
-                f"(Prompt: {total_usage['prompt']}, Completion: {total_usage['completion']})"
+            # Enhanced footer with copyright and developer note
+            footer = (
+                f"\n\n---\n"
+                f"**Total Token Usage:** {total_usage['total']} "
+                f"(Prompt: {total_usage['prompt']}, Completion: {total_usage['completion']})\n"
+                f"*© Cognizant-JCI 2026 | Agentic Snowflake QA Framework Analytics Pro. | All rights reserved.*\n"
+                f"*Developer Note: Designed by Abhinaba. Agentic-AI based Snowflake interactor [Scope : DEV]. "
+                f"For internal use only.*"
             )
-            await cl.Message(content=msg.content + tokens_text).send()
+            await cl.Message(content=msg.content + footer).send()
             break
         
         # 4. Handle Tool Execution
@@ -79,9 +98,12 @@ async def main(message: cl.Message):
                 tool_args = json.loads(tool_call.function.arguments)
                 tool_step.input = tool_args
                 
+                # Use MCP session to execute
                 result = await session.call_tool(tool_name, arguments=tool_args)
                 
                 tool_step.output = str(result.content)
+                
+                # Send result back to LLM
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
