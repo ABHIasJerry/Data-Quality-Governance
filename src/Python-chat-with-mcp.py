@@ -1,6 +1,7 @@
 # pip install chainlit mcp openai
 # Create the Host (app.py) -> In your Chainlit app, you will initialize an MCP Client that connects to your local server process.
 # Create a .env file and add -> OPENAI_API_KEY=sk-your-actual-api-key-here
+# Run the code -> chainlit run <filename>.py
 
 import os
 from dotenv import load_dotenv
