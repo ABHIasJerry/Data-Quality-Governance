@@ -17,78 +17,73 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Load variables from .env file
 load_dotenv()
 
-# Initialize OpenAI 
-# AsyncOpenAI automatically pulls OPENAI_API_KEY from os.environ
 client = AsyncOpenAI()
 
 # 1. Configuration for your custom local MCP server
 server_params = StdioServerParameters(
     command="python", 
-    args=["path/to/your/mcp_server.py"], 
-    # # This ensures it finds mcp-server.py regardless of your terminal location
-    # args=[os.path.join(BASE_DIR, "mcp-server.py")],
+    args=[os.path.join(BASE_DIR, "mcp-server.py")],
 )
 
 @cl.on_chat_start
 async def start():
-    # 2. Establish persistent session for the chat duration
-    # We use a context manager to hold the connection
     transport = await stdio_client(server_params).__aenter__()
     session = await ClientSession(transport[0], transport[1]).__aenter__()
-    
     await session.initialize()
-    
-    # Store session in user_session for access in @on_message
     cl.user_session.set("mcp_session", session)
-    await cl.Message(content="System Ready. MCP Server Connected.").send()
+    await cl.Message(content="System Ready. Snowflake MCP Server Connected.").send()
 
 @cl.on_message
 async def main(message: cl.Message):
     session = cl.user_session.get("mcp_session")
     mcp_tools = await session.list_tools()
     
-    # Format tools for OpenAI
     openai_tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.inputSchema,
-            },
-        }
+        {"type": "function", "function": {"name": tool.name, "description": tool.description, "parameters": tool.inputSchema}}
         for tool in mcp_tools.tools
     ]
 
     messages = [{"role": "user", "content": message.content}]
+    total_usage = {"prompt": 0, "completion": 0, "total": 0}
     
     # 3. LLM Processing Loop
-    # We loop to allow the model to call multiple tools or finish its response
-    for _ in range(5): 
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            tools=openai_tools or None
-        )
-        
-        msg = response.choices[0].message
-        messages.append(msg)
+    for i in range(5): 
+        async with cl.Step(name="LLM Processing", type="llm") as step:
+            response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                tools=openai_tools or None
+            )
+            
+            # Aggregate Usage
+            if response.usage:
+                total_usage["prompt"] += response.usage.prompt_tokens
+                total_usage["completion"] += response.completion_tokens or 0
+                total_usage["total"] += response.usage.total_tokens
+
+            msg = response.choices[0].message
+            messages.append(msg)
         
         if not msg.tool_calls:
-            await cl.Message(content=msg.content).send()
+            tokens_text = (
+                f"\n\n---\n**Total Token Usage:** {total_usage['total']} "
+                f"(Prompt: {total_usage['prompt']}, Completion: {total_usage['completion']})"
+            )
+            await cl.Message(content=msg.content + tokens_text).send()
             break
         
         # 4. Handle Tool Execution
         for tool_call in msg.tool_calls:
-            tool_name = tool_call.function.name
-            tool_args = json.loads(tool_call.function.arguments)
-            
-            # Use MCP session to execute
-            result = await session.call_tool(tool_name, arguments=tool_args)
-            
-            # Send result back to LLM
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": str(result.content)
-            })
+            async with cl.Step(name=f"Tool: {tool_call.function.name}", type="tool") as tool_step:
+                tool_name = tool_call.function.name
+                tool_args = json.loads(tool_call.function.arguments)
+                tool_step.input = tool_args
+                
+                result = await session.call_tool(tool_name, arguments=tool_args)
+                
+                tool_step.output = str(result.content)
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": str(result.content)
+                })
