@@ -2,6 +2,10 @@
 
 import snowflake.connector
 import pandas as pd
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class SnowflakeTableManager:
     def __init__(self, connection_params):
@@ -45,6 +49,20 @@ class SnowflakeTableManager:
         cols_str = ", ".join(columns)
         query = f"SELECT * FROM {table_name} WHERE " + " OR ".join([f"{c} IS NULL" for c in columns])
         return self._execute_query(query)
+
+    def _execute_query(self, query):
+        try:
+            return pd.read_sql(query, self.conn)
+        except Exception as e:
+            logger.error(f"Query execution failed: {e}")
+            raise
+
+    def table_exists(self, table_name, schema, database):
+        query = f"""
+        SELECT COUNT(*) FROM {database}.INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_SCHEMA = '{schema.upper()}' AND TABLE_NAME = '{table_name.upper()}'
+        """
+        return self._execute_query(query).iloc[0, 0] > 0
 
     def close(self):
         self.conn.close()
