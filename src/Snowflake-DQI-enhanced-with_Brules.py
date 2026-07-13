@@ -3,8 +3,10 @@
 {
     "ORDERS": {
         "Negative Order Amounts": "amount < 0",
-        "Future Order Dates": "order_date > CURRENT_DATE()"
-    },
+        "Future Order Dates": "order_date > CURRENT_DATE()",
+        "Incomplete Shipping Address": "shipping_address IS NULL OR zip_code IS NULL",
+        "Orphaned Orders": "customer_id NOT IN (SELECT id FROM CUSTOMERS)"
+    }
     "CUSTOMERS": {
         "Invalid Email Format": "email NOT LIKE '%@%.%'",
         "Short Phone Number": "LEN(phone) < 10"
