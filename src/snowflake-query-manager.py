@@ -1,7 +1,10 @@
+# pip install tabulate
+
 import os
 import snowflake.connector
 from dotenv import load_dotenv
 from datetime import datetime
+from tabulate import tabulate # For nice formatting
 
 load_dotenv()
 
@@ -20,9 +23,9 @@ def run_custom_query(query, use_sso=True):
     
     try:
         cursor = conn.cursor()
-        print(f"Executing query...")
+        print(f"\nExecuting query...")
         cursor.execute(query)
-        
+
         # Get the unique Snowflake Query ID
         query_id = cursor.sfqid
         print(f"Query ID: {query_id}")
@@ -31,36 +34,38 @@ def run_custom_query(query, use_sso=True):
         results = cursor.fetchall()
         columns = [col[0] for col in cursor.description]
         
-        # Prepare Output
+        # 1. Nicely formatted output for Terminal
+        print(f"\n{'='*20} QUERY RESULTS (ID: {query_id}) {'='*20}")
+        print(tabulate(results, headers=columns, tablefmt="grid"))
+        
+        # 2. Save to output file
         output_filename = f"output_{query_id}.txt"
         with open(output_filename, "w") as f:
-            # Write Header
-            header = " | ".join(columns)
-            f.write(f"Query ID: {query_id}\nTimestamp: {datetime.now()}\n\n{header}\n" + "-"*30 + "\n")
+            f.write(f"<?> Query ID: {query_id}\n")
+            f.write(f"<?> Timestamp: {datetime.now()}\n")
+            f.write(f"<Q> Query: {query}\n\n")
+            f.write(tabulate(results, headers=columns, tablefmt="simple"))
             
-            # Print to Terminal and File
-            print(f"\n--- RESULTS ---")
-            print(header)
-            for row in results:
-                row_str = " | ".join(str(val) for val in row)
-                print(row_str)
-                f.write(row_str + "\n")
-        
-        print(f"\nResult saved to: {output_filename}")
+        print(f"\n[✓] Results also saved to: {output_filename}")
+        # Print to Terminal and File
+        print(f"\n--- RESULTS ---")
+        print(header)
+        for row in results:
+            row_str = " | ".join(str(val) for val in row)
+            print(row_str)       
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"\n[!] Error: {e}")
     finally:
         cursor.close()
         conn.close()
 
 if __name__ == "__main__":
-    # Supply your query here
     user_query = input("Enter your SQL query: ")
     
-    # Safety Check: Basic prevention of destructive keywords
-    destructive_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'UPDATE', 'INSERT', 'CREATE', 'REPLACE']
+    # Simple safety filter
+    destructive_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'UPDATE', 'INSERT', 'CREATE', 'REPLACE', 'GRANT', 'REVOKE']
     if any(keyword in user_query.upper() for keyword in destructive_keywords):
-        print("BLOCKED: Destructive command detected. Only SELECT statements are allowed.")
+        print("\n[!] BLOCKED: Destructive/Modification command detected. Only SELECT statements are permitted.")
     else:
         run_custom_query(user_query)
