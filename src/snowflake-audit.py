@@ -12,6 +12,7 @@ import os
 import snowflake.connector
 import pandas as pd
 from dotenv import load_dotenv
+from datetime import datetime # Add this import at the top
 
 # Load credentials from .env
 load_dotenv()
@@ -38,6 +39,8 @@ def extract_metadata(output_file="snowflake_metadata.csv", use_sso=True):
     Queries read-only system views to generate table and column metadata.
     Does not perform any operations that could modify or impact user data.
     """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = f"{output_base_name}_{timestamp}.csv"
     conn = None
     try:
         print("Establishing connection to Snowflake...")
@@ -76,7 +79,7 @@ def extract_metadata(output_file="snowflake_metadata.csv", use_sso=True):
         
         if not df.empty:
             df.to_csv(output_file, index=False)
-            print(f"Successfully generated report: {output_file}")
+            print(f"Successfully generated snowflake audit report: {output_file}")
             print(f"Total rows retrieved: {len(df)}")
         else:
             print("No metadata found for the current configuration.")
