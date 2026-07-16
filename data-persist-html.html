@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title> Data Persistent - Report </title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+    <link href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css" rel="stylesheet">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+</head>
+<body style="background-color:black;">
+<div class="container">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="jumbotron">
+                <center><h1 class="display-4">Data Persistent Report</h1></center>
+            </div>
+        </div>
+
+    </div>
+    <br><br>
+    <div class="accordion md-accordion accordion-blocks" id="main_accordion" role="tablist"
+         aria-multiselectable="true">
+
+
+        <div class="card">
+            <div class="card-header bg-danger" role="tab" id="header3637">
+                <a data-toggle="collapse" data-parent="#main_accordion" href="#collapse3637" aria-expanded="true"
+                   aria-controls="collapse3637">
+                    <h4 class="mt-1 mb-0">
+                        <span class="font-weight-bold" style="padding:10px;color:black">
+                            2.0.36 - 2.0.37
+                        </span>
+                    </h4>
+                </a>
+
+            </div>
+            <div id="collapse3637" class="collapse" role="tabpanel" aria-labelledby="header3637"
+                 data-parent="#main_accordion">
+                <div class="card-body">
+
+                    <!--QUERY ITEM-->
+                    <div class="accordion" id="accordion20352036query">
+                        <div class="card z-depth-0 bordered ">
+                            <div class="card-header bg-danger" id="heading1">
+                                <button class="btn btn-link" type="button" data-toggle="collapse"
+                                        data-target="#collapse1"
+                                        aria-expanded="true" aria-controls="collapse1" style="padding:10px;color:black">
+                                    <h5 class="mb-0 font-weight-bold"> Query Item #1</h5>
+                                </button>
+
+                            </div>
+                            <div id="collapse1" class="collapse" aria-labelledby="heading1"
+                                 data-parent="#accordion20352036query">
+                                <div class="card-body">
+                                    <table class="table table-danger">
+                                        <thead>
+                                        <tr>
+                                            <th>Field</th>
+                                            <th>Info</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td>Query</td>
+                                            <td>ALTER TABLE public.non_product_properties ALTER COLUMN id SET NOT NULL;
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Query result</td>
+                                            <td>FAIL</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Script item</td>
+                                            <td>2</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+
+
+                                    <button data-toggle="collapse" data-target="#steps3637item2step1"
+                                            class="btn-danger"
+                                            style="height:40px;width:80px;">Step - 1
+                                    </button>
+                                    <div id="steps3637item2step1" class="collapse"><br><br>
+                                        <table class="table table-danger">
+                                            <thead>
+                                            <tr>
+                                                <th>Field</th>
+                                                <th>Info</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr>
+                                                <td>Step No</td>
+                                                <td>1</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Function</td>
+                                                <td>@column[properties]</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Step result</td>
+                                                <td>False</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Data</td>
+                                                <td>{'column name': 'id', 'properties': [{'is_nullable': 'NO'}],
+                                                    'schema': 'public', 'table name': 'non_product_properties'}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Exception</td>
+                                                <td>Traceback (most recent call last):
+                                                    File
+                                                    "D:\SayarShare\Data_Management\GerritRepo\Gerrit\testscript\DMAutomatedTest\DataPersistent\Data_Helper.py",
+                                                    line 1226, in verify_database
+                                                    step_result, exception_str = function_evaluate(function_data)
+                                                    File
+                                                    "D:\SayarShare\Data_Management\GerritRepo\Gerrit\testscript\DMAutomatedTest\DataPersistent\Data_Helper.py",
+                                                    line 575, in column_properties
+                                                    actual_value = data[0][columns.index(prop)]
+                                                    IndexError: list index out of range
+
+                                                </td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button data-toggle="collapse" data-target="#steps3637item2step2"
+                                            class="btn-success"
+                                            style="height:40px;width:80px;">Step - 2
+                                    </button>
+                                    <div id="steps3637item2step2" class="collapse"><br><br>
+                                        <table class="table table-success">
+                                            <thead>
+                                            <tr>
+                                                <th>Field</th>
+                                                <th>Info</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr>
+                                                <td>Step No</td>
+                                                <td>2</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Function</td>
+                                                <td>@column[properties]</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Step result</td>
+                                                <td>False</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Data</td>
+                                                <td>{'column name': 'id', 'properties': [{'is_nullable': 'NO'}],
+                                                    'schema': 'public', 'table name': 'non_product_properties'}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Exception</td>
+                                                <td>Traceback (most recent call last):
+                                                    File
+                                                    "D:\SayarShare\Data_Management\GerritRepo\Gerrit\testscript\DMAutomatedTest\DataPersistent\Data_Helper.py",
+                                                    line 1226, in verify_database
+                                                    step_result, exception_str = function_evaluate(function_data)
+                                                    File
+                                                    "D:\SayarShare\Data_Management\GerritRepo\Gerrit\testscript\DMAutomatedTest\DataPersistent\Data_Helper.py",
+                                                    line 575, in column_properties
+                                                    actual_value = data[0][columns.index(prop)]
+                                                    IndexError: list index out of range
+
+                                                </td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+            integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+	function toggleIcon(e) {
+        $(e.target)
+            .prev('.panel-heading')
+            .find(".more-less")
+            .toggleClass('glyphicon-plus glyphicon-minus');
+    }
+    $('.panel-group').on('hidden.bs.collapse', toggleIcon);
+    $('.panel-group').on('shown.bs.collapse', toggleIcon);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </script>
+</div>
+</body>
+</html>
