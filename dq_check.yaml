@@ -158,3 +158,108 @@ verify:
         pk column name: id
         constraint name: fk_gnss_datum_current_rtk_external
 
+---
+1:
+  query: "
+  DO
+  $$
+  BEGIN
+          IF EXISTS (SELECT column_name FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                  AND table_name = 'speed_source'
+                  AND column_name = 'present')
+          THEN
+  		ALTER TABLE public.speed_source ALTER COLUMN present SET NOT NULL;
+  	ELSE
+  		RAISE NOTICE 'Column ''%'' missing from table ''%''','present','public.speed_source';
+  	END IF;
+  END; $$;
+  "
+  verify:
+    - "@column[properties]":
+        schema: public
+        table name: speed_source
+        column name: present
+        properties:
+          - is_nullable: 'NO'
+
+2:
+  query: "ALTER TABLE public.non_product_properties ALTER COLUMN id SET NOT NULL;"
+  verify:
+    - "@column[properties]":
+        schema: public
+        table name: non_product_properties
+        column name: id
+        properties:
+          - is_nullable: 'NO'
+
+7:
+  query: "SELECT pg_catalog.setval('public.non_product_properties_id_seq', 1, false);"
+  verify:
+    - "@sequence[current value]":
+        schema: public
+        sequence name: non_product_properties_id_seq
+        current value: 1
+
+3:
+  query: "CREATE TABLE public.element AS TABLE public.ddi_layer_selection;"
+  verify:
+    - "@table[exist]":
+        schema: public
+        table name: element
+    - "@table[properties]":
+        schema: public
+        table name: ddi_layer_selection
+
+3:
+  query: "ALTER TABLE IF EXISTS ONLY public.current_calibration_values ADD COLUMN IF NOT EXISTS elevatorspeed character varying (255) ;"
+  verify:
+    - "@column[exist]":
+        schema: public
+        table name: current_calibration_values
+        column name: elevatorspeed
+    - "@column[properties]":
+        schema: public
+        table name: current_calibration_values
+        column name: elevatorspeed
+        properties:
+          - data_type: 'character varying'
+
+5:
+  query: "CREATE OR REPLACE FUNCTION public.delete_cascade_speed_and_work_prefs() RETURNS trigger
+LANGUAGE plpgsql
+        AS $$
+                BEGIN
+                        DELETE FROM preferences.speed_preferences sp WHERE sp.vehicle_implement_config_id = OLD.id ;
+                        DELETE FROM preferences.work_preferences wp WHERE wp.vehicle_implement_config_id = OLD.id ;
+                        RETURN NULL;
+                END;
+        $$;"
+  verify:
+    - "@function[exist]":
+        schema: public
+        function name: delete_cascade_speed_and_work_prefs
+        return type: trigger
+        language: plpgsql
+
+
+7:
+  query: "CREATE TRIGGER tg_delete_speed_and_work_prefs AFTER DELETE ON public.vehicle_implement_config FOR EACH ROW EXECUTE PROCEDURE public.delete_cascade_speed_and_work_prefs();
+"
+  verify:
+    - "@trigger[exist]":
+        schema: public
+        trigger name: tg_delete_speed_and_work_prefs
+        event table: vehicle_implement_config
+        event: DELETE
+        action orientation: ROW
+        action timing: AFTER
+        execution statement: EXECUTE PROCEDURE delete_cascade_speed_and_work_prefs()
+
+4:
+  query: "DROP TRIGGER if exists tg_delete_guidance_configuration ON public.guidance_configuration CASCADE ;"
+  verify:
+    - "@trigger[not exist]":
+        schema: public
+        trigger name: tg_delete_guidance_configuration
+        event table: guidance_configuration
