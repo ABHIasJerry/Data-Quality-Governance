@@ -1,0 +1,160 @@
+1:
+  query: "UPDATE gnss_receiver_settings SET rtk_status = 'f' WHERE rtk_status IS NULL;"
+  verify:
+    - "@column[value]":
+        schema: public
+        table name: gnss_receiver_settings
+        column name: rtk_status
+        value: 'True'
+
+2:
+  query: "DROP TABLE IF EXISTS polygon_ring_ids CASCADE;"
+  verify:
+    - "@table[not exist]":
+        schema: public
+        table name: polygon_ring_ids
+
+1:
+  query: "ALTER TABLE public.gnss_receiver_settings ADD COLUMN roll_calibration_timestamp bigint;"
+  verify:
+    - "@column[exist]":
+        schema: public
+        table name: gnss_receiver_settings
+        column name: roll_calibration_timestamp
+    - "@column[properties]":
+        schema: public
+        table name: gnss_receiver_settings
+        column name: roll_calibration_timestamp
+        properties:
+          - data_type: 'bigint'
+6:
+  query: "ALTER TABLE public.gnss_receiver_settings ADD COLUMN roll_calibration_y_rotation_sd double precision;"
+  verify:
+    - "@column[exist]":
+        schema: public
+        table name: gnss_receiver_settings
+        column name: roll_calibration_y_rotation_sd
+    - "@column[properties]":
+        schema: public
+        table name: gnss_receiver_settings
+        column name: roll_calibration_y_rotation_sd
+        properties:
+          - data_type: 'double'
+2:
+  query: "ALTER TABLE public.gnss_receiver_settings DROP COLUMN IF EXISTS roll_calibration_x_rotation;"
+  verify:
+    - "@column[not exist]":
+        schema: public
+        table name: gnss_receiver_settings
+        column name: roll_calibration_x_rotation
+
+23:
+query: "UPDATE public.guidance_feature_aeort SET turn_early = 0.0 WHERE turn_early IS NULL;"
+verify:
+  - "@column[value]":
+      schema: public
+      table name: guidance_feature_aeort
+      column name: turn_early
+      value: '0.0'
+
+1:
+  query: "CREATE TABLE public.crop_type_selected_list (
+              crop_type_selected_list_id integer NOT NULL,
+              crop_type_selected_list_idx integer NOT NULL,
+              elt integer);"
+  verify:
+    - "@table[exist]":
+        schema: public
+        table name: crop_type_selected_list
+    - "@column[exist]":
+        schema: public
+        table name: crop_type_selected_list
+        column name: crop_type_selected_list_id
+    - "@column[exist]":
+        schema: public
+        table name: crop_type_selected_list
+        column name: crop_type_selected_list_idx
+    - "@column[exist]":
+        schema: public
+        table name: crop_type_selected_list
+        column name: elt
+
+  2:
+  query: "UPDATE public.task_counters SET isexportabletoiso = 'f' WHERE isexportabletoiso IS NULL;"
+  verify:
+    - "@column[value]":
+        schema: public
+        table name: task_counters
+        column name: isexportabletoiso
+        value: 'False'
+
+  2:
+  query: "ALTER TABLE ONLY public.map_data_options
+              ADD CONSTRAINT map_data_options_pkey PRIMARY KEY (smap_data_options_id, map_data_options_idx);"
+  verify:
+    - "@constraint[exist]":
+        schema: public
+        table name: map_data_options
+        constraint name: map_data_options_pkey
+
+5:
+  query: "UPDATE public.gnss_datum_phase2
+          SET correction_type_option = 'RTX_RTK_RTKPLUS_TERRASTAR'
+          WHERE vehicle_datum_name = 'ITRF2014 (2018.18)'
+          AND receiver_datum_name = 'ITRF2014';"
+  verify:
+    - "@column[value]":
+        schema: public
+        table name: gnss_datum_phase2
+        column name: correction_type_option
+        value: RTX_RTK_RTKPLUS_TERRASTAR
+
+2:
+  query: "CREATE SEQUENCE public.gnss_datum_current_correctiontypes_id_seq
+              START WITH 1
+              INCREMENT BY 1
+              NO MINVALUE
+              NO MAXVALUE
+              CACHE 1;"
+  verify:
+    - "@sequence[exist]":
+        schema: public
+        sequence name: gnss_datum_current_correctiontypes_id_seq
+
+3:
+  query: "ALTER SEQUENCE public.gnss_datum_current_correctiontypes_id_seq OWNED BY public.gnss_datum_current_correctiontypes.id;"
+  verify:
+    - "@sequence[properties]":
+        schema: public
+        sequence name: gnss_datum_current_correctiontypes_id_seq
+        properties:
+          - owner: gnss_datum_current_correctiontypes
+
+4:
+  query: "ALTER TABLE ONLY public.gnss_datum_current_correctiontypes ALTER COLUMN id SET DEFAULT nextval('public.gnss_datum_current_correctiontypes_id_seq'::regclass);"
+  verify:
+    - "@column[properties]":
+        schema: public
+        table name: gnss_datum_current_correctiontypes
+        column name: id
+        properties:
+          - column_default: "nextval('public.gnss_datum_current_correctiontypes_id_seq'::regclass)"
+
+8:
+  query: "ALTER TABLE ONLY public.gnss_datum_current_correctiontypes
+              ADD CONSTRAINT fk_gnss_datum_current_rtk_external
+              FOREIGN KEY (gnss_datum_rtk_external_id) REFERENCES public.gnss_datum_phase2(id);"
+  verify:
+    - "@constraint[exist]":
+        schema: public
+        table name: gnss_datum_current_correctiontypes
+        constraint name: fk_gnss_datum_current_rtk_external
+    - "@constraint[foreign key]":
+        pk schema: public
+        fk schema: public
+        fk table name: gnss_datum_current_correctiontypes
+        fk column name: gnss_datum_rtk_external_id
+        pk table name: gnss_datum_phase2
+        pk column name: id
+        constraint name: fk_gnss_datum_current_rtk_external
+
