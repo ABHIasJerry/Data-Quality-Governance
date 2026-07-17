@@ -59,7 +59,7 @@ def run_test(test_module, test_id):
     end_time = time.strftime('%H Hours, %M Min, %S Sec', time.gmtime(time.time() - start_time))
     print(f' Total Execution Time : {end_time} '.center(150, '='))
     print(f'[TestRunner] > Creating HTML Report : {test_module}')
-    logger.html_report_object.create_html_test_report(test_case="DM", test_suite_flag=True)
+    logger.fs_fancy_report("DM")
     print(f'[TestRunner] > Successfully created HTML Report ')
 
 
@@ -70,3 +70,4 @@ if __name__ == '__main__':
     run_test(test_module, test_name)
 
 # ---------------------------------------------- END ---------------------------------------------------------------- #
+
