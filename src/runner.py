@@ -8,7 +8,6 @@
 # @attention Copyright (C) 
 # @version   1
 # ----------------------------------------------------------------------------------------------------------
-# IMPORTS
 import os
 import sys
 import time
@@ -188,7 +187,7 @@ class TestRunner:
                 print(f'[TestRunner] > Module Not Found : {test_module}')
             os.system('adb kill-server')
             print(f'[TestRunner] > Creating HTML Report : {test_module}')
-            logger.html_report_object.create_html_test_report(test_case="DM", test_suite_flag=True)
+            logger.fs_fancy_report("DM")
             print(f'[TestRunner] > Successfully created HTML Report ')
             print(' Execution Status '.center(150, '='))
             print(
@@ -203,3 +202,5 @@ if __name__ == '__main__':
     test_suite = "DM_TestSuite.xlsx"
     runner = TestRunner(test_suite)
     runner.start_execution()
+
+# ---------------------------------------------- END ---------------------------------------------------------------- #
