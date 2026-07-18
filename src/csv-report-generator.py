@@ -7,12 +7,12 @@ import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
 
-# --- 1. SMART LOGGER CLASS ---
+# --- 1. SMART LOGGER: Redirects prints to file & terminal ---
 class Logger:
     def __init__(self, log_dir="logs"):
         os.makedirs(log_dir, exist_ok=True)
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.log_file = open(os.path.join(log_dir, f"run_{timestamp}.txt"), "a")
+        self.log_file = open(os.path.join(log_dir, f"execution_log_{timestamp}.txt"), "a")
         self.terminal = sys.stdout
         sys.stdout = self
         sys.stderr = self
@@ -24,51 +24,70 @@ class Logger:
 
     def flush(self): pass
 
-# Initialize Logger
-Logger()
-
-# --- 2. REPORT GENERATOR CLASS ---
-class TestReporter:
-    def __init__(self, csv_filename="test_results.csv"):
-        self.csv_filename = csv_filename
-        self.results = []
+# --- 2. TEST REPORTER: Manages CSV state ---
+class TestManager:
+    def __init__(self, csv_file="test_results.csv"):
+        self.csv_file = csv_file
         self.fields = ['TestID', 'Testcase name', 'Test description', 'Tested by', 'test date', 'run count', 'test status', 'comments']
-        
-        # Create CSV header if not exists
-        if not os.path.exists(self.csv_filename):
-            with open(self.csv_filename, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=self.fields)
-                writer.writeheader()
-
-    def add_result(self, data):
-        """Append a single test result to the CSV file immediately."""
-        self.results.append(data)
-        with open(self.csv_filename, 'a', newline='') as f:
+        # Initialize CSV with headers
+        with open(self.csv_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=self.fields)
-            writer.writerow(data)
-        print(f"Logged: {data['Testcase name']} - {data['test status']}")
+            writer.writeheader()
 
-# --- 3. EXECUTION LOGIC ---
-reporter = TestReporter()
+    def update_result(self, test_data):
+        """Saves individual test result to CSV immediately."""
+        with open(self.csv_file, 'a', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=self.fields)
+            writer.writerow(test_data)
+        print(f"Result Saved: {test_data['Testcase name']} -> {test_data['test status']}")
 
-# Mocking a test run sequence
-test_sequence = [
-    {'TestID': '001', 'Testcase name': 'Login', 'Test description': 'Verify login', 'Tested by': 'Admin', 'test date': '2026-07-18', 'run count': 1, 'test status': 'Pass', 'comments': 'OK'},
-    {'TestID': '002', 'Testcase name': 'Logout', 'Test description': 'Verify logout', 'Tested by': 'Admin', 'test date': '2026-07-18', 'run count': 1, 'test status': 'Fail', 'comments': 'Timeout'}
-]
-
-print("--- Starting Test Execution ---")
-for test in test_sequence:
-    # --- HERE YOU WOULD RUN YOUR ACTUAL TEST CODE ---
-    # Example: status = run_my_test(test)
-    reporter.add_result(test)
-
-print("--- All tests completed. Generating HTML Dashboard ---")
-
-# --- 4. HTML GENERATION (Same as before) ---
-def generate_html_report(csv_file):
+# --- 3. HTML GENERATOR: Final summary ---
+def finalize_html_report(csv_file):
     df = pd.read_csv(csv_file)
-    # ... [Insert the HTML/Bootstrap generation code here as provided previously] ...
-    print("HTML Report successfully exported.")
+    status_counts = df['test status'].value_counts()
+    
+    # Pie Chart
+    plt.figure(figsize=(5, 5))
+    plt.pie(status_counts, labels=status_counts.index, autopct='%1.1f%%', colors=['#28a745', '#dc3545', '#ffc107'])
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png', bbox_inches='tight')
+    chart_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    plt.close()
 
-generate_html_report('test_results.csv')
+    # Generate HTML
+    html = f"""
+    <!DOCTYPE html>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <body class="bg-light p-5">
+        <div class="container bg-white p-4 shadow rounded">
+            <h1>Test Run Final Report</h1>
+            <img src="data:image/png;base64,{chart_base64}" class="img-fluid mb-4">
+            {df.to_html(classes='table table-striped', index=False)}
+        </div>
+    </body>
+    """
+    with open("final_report.html", "w") as f: f.write(html)
+    print("\n--- Final HTML Report Generated: final_report.html ---")
+
+# --- EXECUTION FLOW ---
+Logger() # Start logging
+tm = TestManager()
+
+# Simulate 10 test cases
+for i in range(1, 11):
+    print(f"\n--- Running Test {i} ---")
+    # ... your test automation logic here ...
+    result = {
+        'TestID': f'T{i:03}', 
+        'Testcase name': f'Sample Test {i}', 
+        'Test description': 'Validation step', 
+        'Tested by': 'Automation', 
+        'test date': datetime.date.today(), 
+        'run count': 1, 
+        'test status': 'Pass' if i % 3 != 0 else 'Fail', 
+        'comments': 'Success' if i % 3 != 0 else 'Validation Error'
+    }
+    tm.update_result(result)
+
+# Finalize
+finalize_html_report("test_results.csv")
