@@ -1,46 +1,59 @@
 import pandas as pd
-import numpy as np
 
-def compare_csvs_positional(source_path, target_path, output_path):
-    # Load the datasets
-    df_src = pd.read_csv(source_path)
-    df_tgt = pd.read_csv(target_path)
+def generate_full_comparison_report(source_path, target_path, output_path):
+    # 1. Load the datasets
+    df_src = pd.read_csv(source_path, encoding="utf-8", encoding_errors="ignore")
+    df_tgt = pd.read_csv(target_path, encoding="utf-8", encoding_errors="ignore")
 
-    # Ensure files have the same number of rows for positional comparison
-    # If they differ, we pad the shorter one with empty rows
-    max_rows = max(len(df_src), len(df_tgt))
-    
-    # Reindex to match the max length to avoid errors during alignment
-    df_src = df_src.reindex(range(max_rows))
-    df_tgt = df_tgt.reindex(range(max_rows))
+    # 2. Align rows by index (handles row mismatches)
+    max_len = max(len(df_src), len(df_tgt))
+    df_src = df_src.reindex(range(max_len))
+    df_tgt = df_tgt.reindex(range(max_len))
 
-    # Initialize the report DataFrame
+    # 3. Initialize the report
     report = pd.DataFrame()
+    
+    # 4. Process Columns
+    all_source_cols = df_src.columns
+    all_target_cols = df_tgt.columns
+    
+    # Get the union of all column names to ensure we include everything
+    all_cols = set(all_source_cols) | set(all_target_cols)
 
-    # Identify common columns
-    common_cols = [c for c in df_src.columns if c in df_tgt.columns]
+    for col in all_cols:
+        # If the column exists in both, we perform the match comparison
+        if col in all_source_cols and col in all_target_cols:
+            s_vals = df_src[col]
+            t_vals = df_tgt[col]
+            
+            # Add Source and Target columns
+            report[f"SOURCE_{col}"] = s_vals.fillna("")
+            report[f"TARGET_{col}"] = t_vals.fillna("")
+            
+            # Apply your specific logic:
+            match_status = []
+            for s, t in zip(s_vals, t_vals):
+                # Check if either value is blank or NaN
+                if pd.isna(s) or s == "" or pd.isna(t) or t == "":
+                    match_status.append("NOT FOUND")
+                elif str(s) == str(t):
+                    match_status.append("TRUE")
+                else:
+                    match_status.append("FALSE")
+            
+            report[f"MATCH_{col}"] = match_status
+            
+        # If column exists only in Source
+        elif col in all_source_cols:
+            report[f"SOURCE_{col}"] = df_src[col].fillna("")
+            
+        # If column exists only in Target
+        elif col in all_target_cols:
+            report[f"TARGET_{col}"] = df_tgt[col].fillna("")
 
-    for col in common_cols:
-        # Get data and fill missing values with a placeholder
-        s_vals = df_src[col].fillna("not found")
-        t_vals = df_tgt[col].fillna("not found")
-
-        # Determine Match Status
-        # We define a match only if both values exist and are equal
-        match_status = np.where(
-            (s_vals == "not found") | (t_vals == "not found"), 
-            "not found", 
-            np.where(s_vals == t_vals, "matched", "not-matched")
-        )
-
-        # Add columns to report in the specific order requested
-        report[f"{col}_SOURCE"] = s_vals
-        report[f"{col}_TARGET"] = t_vals
-        report[f"{col}_MATCH"] = match_status
-
-    # Save to CSV
+    # 5. Save to CSV
     report.to_csv(output_path, index=False)
-    print(f"Report successfully generated: {output_path}")
+    print(f"Report successfully generated at: {output_path}")
 
 # Usage
-compare_csvs_positional('source.csv', 'target.csv', 'final_report.csv')
+generate_full_comparison_report('source.csv', 'target.csv', 'report.csv')
