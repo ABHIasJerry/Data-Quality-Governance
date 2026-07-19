@@ -1,44 +1,55 @@
 import pandas as pd
 import numpy as np
 
-def generate_comparison_report(source_path, target_path, output_path, join_key):
-    # Load the datasets
-    source = pd.read_csv(source_path)
-    target = pd.read_csv(target_path)
+def compare_csvs_with_summary(source_path, target_path, output_path):
+    # 1. Load the datasets
+    df_src = pd.read_csv(source_path)
+    df_tgt = pd.read_csv(target_path)
 
-    # Perform an outer merge to handle row mismatches
-    merged = pd.merge(source, target, on=join_key, how='outer', suffixes=('_SOURCE', '_TARGET'))
-
-    report = pd.DataFrame()
-    report['ID_KEY'] = merged[join_key]
-
-    # Iterate through common columns to compare
-    common_cols = [c for c in source.columns if c in target.columns and c != join_key]
+    # 2. Identify common columns
+    common_cols = [c for c in df_src.columns if c in df_tgt.columns]
     
+    # 3. Sort to align rows (handling row mismatches)
+    df_src_sorted = df_src.sort_values(by=common_cols).reset_index(drop=True)
+    df_tgt_sorted = df_tgt.sort_values(by=common_cols).reset_index(drop=True)
+
+    # Pad shorter file
+    max_len = max(len(df_src_sorted), len(df_tgt_sorted))
+    df_src_sorted = df_src_sorted.reindex(range(max_len))
+    df_tgt_sorted = df_tgt_sorted.reindex(range(max_len))
+
+    # 4. Initialize Report and status tracking
+    report = pd.DataFrame()
+    row_status = np.array(["matched"] * max_len)
+
     for col in common_cols:
-        src_col = f"{col}_SOURCE"
-        tgt_col = f"{col}_TARGET"
-        
-        # Fill missing values with "not found" for the report
-        s_vals = merged[src_col].fillna("not found")
-        t_vals = merged[tgt_col].fillna("not found")
-        
-        # Determine Match Status
-        # If either side is "not found", it cannot be a match
+        s_vals = df_src_sorted[col].fillna("not found")
+        t_vals = df_tgt_sorted[col].fillna("not found")
+
+        # Determine individual match status
         match_status = np.where(
             (s_vals == "not found") | (t_vals == "not found"), 
             "not found", 
             np.where(s_vals == t_vals, "matched", "not-matched")
         )
-        
-        # Create report columns with clear file indication
-        report[f"{col}_MATCH_STATUS"] = match_status
-        report[src_col] = s_vals
-        report[tgt_col] = t_vals
+
+        # Build report columns
+        report[f"{col}_SOURCE"] = s_vals
+        report[f"{col}_TARGET"] = t_vals
+        report[f"{col}_MATCH"] = match_status
+
+        # Update global row status
+        # If any column is "not-matched", row is "not-matched"
+        row_status = np.where(match_status == "not-matched", "not-matched", row_status)
+        # If row isn't "not-matched" but has a "not found", make it "not found"
+        row_status = np.where((match_status == "not found") & (row_status != "not-matched"), "not found", row_status)
+
+    # 5. Add the summary column
+    report["OVERALL_ROW_STATUS"] = row_status
 
     # Save to CSV
     report.to_csv(output_path, index=False)
-    print(f"Report generated successfully at: {output_path}")
+    print(f"Report generated successfully: {output_path}")
 
 # Usage
-generate_comparison_report('source.csv', 'target.csv', 'comparison_report.csv', join_key='ID')
+compare_csvs_with_summary('source.csv', 'target.csv', 'final_report.csv')
