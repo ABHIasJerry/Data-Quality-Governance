@@ -1,210 +1,87 @@
 import pandas as pd
-
-def generate_full_comparison_report(source_path, target_path, output_path):
-    # 1. Load the datasets
-    df_src = pd.read_csv(source_path, encoding="utf-8", encoding_errors="ignore")
-    df_tgt = pd.read_csv(target_path, encoding="utf-8", encoding_errors="ignore")
-
-    # 2. Align rows by index (handles row mismatches)
-    max_len = max(len(df_src), len(df_tgt))
-    df_src = df_src.reindex(range(max_len))
-    df_tgt = df_tgt.reindex(range(max_len))
-
-    # 3. Initialize the report
-    report = pd.DataFrame()
-    
-    # 4. Process Columns
-    all_source_cols = df_src.columns
-    all_target_cols = df_tgt.columns
-    
-    # Get the union of all column names to ensure we include everything
-    all_cols = set(all_source_cols) | set(all_target_cols)
-
-    for col in all_cols:
-        # If the column exists in both, we perform the match comparison
-        if col in all_source_cols and col in all_target_cols:
-            s_vals = df_src[col]
-            t_vals = df_tgt[col]
-            
-            # Add Source and Target columns
-            report[f"SOURCE_{col}"] = s_vals.fillna("")
-            report[f"TARGET_{col}"] = t_vals.fillna("")
-            
-            # Apply your specific logic:
-            match_status = []
-            for s, t in zip(s_vals, t_vals):
-                # Check if either value is blank or NaN
-                if pd.isna(s) or s == "" or pd.isna(t) or t == "":
-                    match_status.append("NOT FOUND")
-                elif str(s) == str(t):
-                    match_status.append("TRUE")
-                else:
-                    match_status.append("FALSE")
-            
-            report[f"MATCH_{col}"] = match_status
-            
-        # If column exists only in Source
-        elif col in all_source_cols:
-            report[f"SOURCE_{col}"] = df_src[col].fillna("")
-            
-        # If column exists only in Target
-        elif col in all_target_cols:
-            report[f"TARGET_{col}"] = df_tgt[col].fillna("")
-
-    # 5. Save to CSV
-    report.to_csv(output_path, index=False)
-    print(f"Report successfully generated at: {output_path}")
-
-# Usage
-generate_full_comparison_report('source.csv', 'target.csv', 'report.csv')
-
-#######################################################################################
-
-import pandas as pd
 from collections import Counter
 
-def generate_full_comparison_report(source_path, target_path, output_path):
-    # 1. Load the datasets
-    df_src = pd.read_csv(source_path, encoding="utf-8", encoding_errors="ignore")
-    df_tgt = pd.read_csv(target_path, encoding="utf-8", encoding_errors="ignore")
 
-    # 2. Align rows by index (handles row mismatches in length only —
-    #    this is just so both DataFrames are the same length for the
-    #    side-by-side report; it is NOT used for matching anymore)
-    max_len = max(len(df_src), len(df_tgt))
-    df_src = df_src.reindex(range(max_len))
-    df_tgt = df_tgt.reindex(range(max_len))
+def _normalize(v):
+    """Convert a cell value to a comparable string.
 
-    # 3. Initialize the report
-    report = pd.DataFrame()
+    Returns None for blank/NaN values. Handles the common pandas gotcha
+    where a whole-number column gets upcast to float (e.g. 1 -> 1.0)
+    after NaNs are introduced, which would otherwise break string
+    comparisons like "1" != "1.0".
+    """
+    if pd.isna(v) or v == "":
+        return None
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v).strip()
 
-    # 4. Process Columns
-    all_source_cols = df_src.columns
-    all_target_cols = df_tgt.columns
-
-    # Get the union of all column names to ensure we include everything
-    all_cols = set(all_source_cols) | set(all_target_cols)
-
-    for col in all_cols:
-        # If the column exists in both, we perform the match comparison
-        if col in all_source_cols and col in all_target_cols:
-            s_vals = df_src[col]
-            t_vals = df_tgt[col]
-
-            # Add Source and Target columns
-            report[f"SOURCE_{col}"] = s_vals.fillna("")
-            report[f"TARGET_{col}"] = t_vals.fillna("")
-
-            # Build a lookup of every value that appears anywhere in the
-            # target column (as strings), so row order no longer matters.
-            # Counter also lets us know how many times each value occurs,
-            # in case that's useful later (e.g. duplicate detection).
-            target_value_counts = Counter(
-                str(v) for v in t_vals if not (pd.isna(v) or v == "")
-            )
-
-            # Apply your specific logic, but search the WHOLE target
-            # column for each source value instead of comparing the
-            # value at the same row index.
-            match_status = []
-            for s in s_vals:
-                if pd.isna(s) or s == "":
-                    match_status.append("NOT FOUND")
-                elif str(s) in target_value_counts:
-                    match_status.append("TRUE")
-                else:
-                    match_status.append("FALSE")
-
-            report[f"MATCH_{col}"] = match_status
-
-        # If column exists only in Source
-        elif col in all_source_cols:
-            report[f"SOURCE_{col}"] = df_src[col].fillna("")
-
-        # If column exists only in Target
-        elif col in all_target_cols:
-            report[f"TARGET_{col}"] = df_tgt[col].fillna("")
-
-    # 5. Save to CSV
-    report.to_csv(output_path, index=False)
-    print(f"Report successfully generated at: {output_path}")
-
-# Usage
-generate_full_comparison_report('source.csv', 'target.csv', 'report.csv')
-
-##############################################################################
-
-import pandas as pd
-from collections import Counter
 
 def generate_full_comparison_report(source_path, target_path, output_path):
     # 1. Load the datasets
     df_src = pd.read_csv(source_path, encoding="utf-8", encoding_errors="ignore")
     df_tgt = pd.read_csv(target_path, encoding="utf-8", encoding_errors="ignore")
 
-    # 2. Align rows by index (handles row mismatches in length only —
-    #    this is just so both DataFrames are the same length for the
-    #    side-by-side report; it is NOT used for matching anymore)
+    # NOTE: we deliberately do NOT reindex/pad the source and target
+    # dataframes to a common length before comparing. Doing that forces
+    # pandas to introduce NaNs into short numeric columns, which upcasts
+    # them from int to float (1 -> 1.0) and breaks string matching.
+    # Matching is now done directly against each column's own values.
+
+    report_columns = {}
     max_len = max(len(df_src), len(df_tgt))
-    df_src = df_src.reindex(range(max_len))
-    df_tgt = df_tgt.reindex(range(max_len))
 
-    # 3. Initialize the report
-    report = pd.DataFrame()
-
-    # 4. Process Columns
     all_source_cols = df_src.columns
     all_target_cols = df_tgt.columns
-
-    # Get the union of all column names to ensure we include everything
     all_cols = set(all_source_cols) | set(all_target_cols)
 
     for col in all_cols:
-        # If the column exists in both, we perform the match comparison
         if col in all_source_cols and col in all_target_cols:
             s_vals = df_src[col]
             t_vals = df_tgt[col]
 
-            # Add Source and Target columns
-            report[f"SOURCE_{col}"] = s_vals.fillna("")
-            report[f"TARGET_{col}"] = t_vals.fillna("")
-
-            # Build a lookup of every value that appears anywhere in the
-            # target column (as strings), so row order no longer matters.
-            # Counter also lets us know how many times each value occurs,
-            # in case that's useful later (e.g. duplicate detection).
-            target_value_counts = Counter(
-                str(v) for v in t_vals if not (pd.isna(v) or v == "")
+            # Lookup of every normalized value present anywhere in the
+            # target column / source column, so row order doesn't matter.
+            target_norm_counts = Counter(
+                n for n in (_normalize(v) for v in t_vals) if n is not None
             )
 
-            # Apply your specific logic, but search the WHOLE target
-            # column for each source value instead of comparing the
-            # value at the same row index.
             match_status = []
             for s in s_vals:
-                if pd.isna(s) or s == "":
-                    # Blank/missing in source -> report blank cell (handled
-                    # by fillna above) and a FALSE status, not "NOT FOUND".
+                s_norm = _normalize(s)
+                if s_norm is None:
                     match_status.append("FALSE")
-                elif str(s) in target_value_counts:
+                elif s_norm in target_norm_counts:
                     match_status.append("TRUE")
                 else:
                     match_status.append("FALSE")
 
-            report[f"MATCH_{col}"] = match_status
+            # Pad the shorter side with blanks for display, WITHOUT
+            # letting pandas upcast dtypes (convert to plain lists first).
+            s_list = [("" if pd.isna(v) else v) for v in s_vals.tolist()]
+            t_list = [("" if pd.isna(v) else v) for v in t_vals.tolist()]
+            s_list += [""] * (max_len - len(s_list))
+            t_list += [""] * (max_len - len(t_list))
+            match_status += ["FALSE"] * (max_len - len(match_status))
 
-        # If column exists only in Source
+            report_columns[f"SOURCE_{col}"] = s_list
+            report_columns[f"TARGET_{col}"] = t_list
+            report_columns[f"MATCH_{col}"] = match_status
+
         elif col in all_source_cols:
-            report[f"SOURCE_{col}"] = df_src[col].fillna("")
+            s_list = [("" if pd.isna(v) else v) for v in df_src[col].tolist()]
+            s_list += [""] * (max_len - len(s_list))
+            report_columns[f"SOURCE_{col}"] = s_list
 
-        # If column exists only in Target
         elif col in all_target_cols:
-            report[f"TARGET_{col}"] = df_tgt[col].fillna("")
+            t_list = [("" if pd.isna(v) else v) for v in df_tgt[col].tolist()]
+            t_list += [""] * (max_len - len(t_list))
+            report_columns[f"TARGET_{col}"] = t_list
 
-    # 5. Save to CSV
+    report = pd.DataFrame(report_columns)
     report.to_csv(output_path, index=False)
     print(f"Report successfully generated at: {output_path}")
 
+
 # Usage
 generate_full_comparison_report('source.csv', 'target.csv', 'report.csv')
-
