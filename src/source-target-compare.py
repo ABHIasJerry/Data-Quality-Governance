@@ -462,7 +462,6 @@ def _match_column(s_vals, t_vals):
     t_used = [False] * len(t_norm)
 
     rows = []
-    unmatched_s = []
 
     # 1. Walk source values, find a matching target value anywhere.
     for sv, sn in zip(s_vals, s_norm):
@@ -481,18 +480,13 @@ def _match_column(s_vals, t_vals):
             t_used[match_idx] = True
             rows.append((sv, t_vals[match_idx], "TRUE"))
         else:
-            # Queue unmatched source value to be printed on its own row later
-            unmatched_s.append(sv)
+            # Output the unmatched source value inline immediately,
+            # rather than queuing it for the bottom.
+            rows.append((sv, "", "FALSE"))
 
-    # 2. Unmatched Source Values -> Leave target blank and put FALSE
-    for su in unmatched_s:
-        rows.append((su, "", "FALSE"))
-
-    # 3. Unmatched Target Values -> Leave source blank and put FALSE
-    for used, tv, tn in zip(t_used, t_vals, t_norm):
-        if not used:
-            if tn is not None:
-                rows.append(("", tv, "FALSE"))
+    # 2. TARGET DUMPING REMOVED
+    # Any target values (including duplicates) that were never matched 
+    # are simply ignored and will no longer cascade at the bottom of the column.
 
     return rows
 
@@ -523,7 +517,9 @@ def generate_full_comparison_report(source_path, target_path, output_path):
             col_lengths[col] = len(vals)
 
         elif col in all_target_cols:
-            vals = [("" if pd.isna(v) else v) for v in df_tgt[col].tolist()]
+            # We enforce length limits based on Source length to prevent Target columns 
+            # from stretching the table if they happen to be longer.
+            vals = [("" if pd.isna(v) else v) for v in df_tgt[col].tolist()][:len(df_src)]
             report_columns[col] = ("target_only", vals)
             col_lengths[col] = len(vals)
 
