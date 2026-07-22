@@ -476,13 +476,13 @@ def _match_column(s_vals, t_vals):
     t_used = [False] * len(t_norm)
 
     rows = []
-    unmatched_s_indices = []
+    unmatched_s = []  # leftover source values with no match, to pair up later
 
     # 1. Walk source values, find a matching target value anywhere.
-    for idx, (sv, sn) in enumerate(zip(s_vals, s_norm)):
+    for sv, sn in zip(s_vals, s_norm):
         if sn is None:
             # A blank source cell can't match anything - its own blank/blank row.
-            rows.append((idx, sv, "", "FALSE", "s_blank"))
+            rows.append(("", "", "FALSE"))
             continue
 
         match_idx = None
@@ -493,21 +493,24 @@ def _match_column(s_vals, t_vals):
 
         if match_idx is not None:
             t_used[match_idx] = True
-            rows.append((None, sv, t_vals[match_idx], "TRUE", "matched"))
+            rows.append((sv, t_vals[match_idx], "TRUE"))
         else:
-            unmatched_s_indices.append((idx, sv))
+            # Don't write this yet - queue it so it can be paired side by
+            # side with a leftover target value instead of getting its own
+            # row now and the target leftover getting a separate row later
+            unmatched_s.append(sv)
 
     # 2. Collect any target values that were never matched to a source value.
-    unmatched_t_items = [
+    unmatched_t = [
         ("" if tn is None else tv)
         for tv, tn, used in zip(t_vals, t_norm, t_used)
         if not used
     ]
 
-    # 3. Pair leftover source and target values explicitly
-    unmatched_s_items = [item for _, item in unmatched_s_indices]
-    for su, tu in zip_longest(unmatched_s_items, unmatched_t_items, fillvalue=""):
-        rows.append((None, su, tu, "FALSE", "unmatched"))
+    # 3. Pair leftover source and target values side by side, row for row,
+    #    instead of stacking them as separate trailing rows.
+    for su, tu in zip_longest(unmatched_s, unmatched_t, fillvalue=""):
+        rows.append((su, tu, "FALSE"))
 
     return rows
 
@@ -521,6 +524,9 @@ def generate_full_comparison_report(source_path, target_path, output_path):
     all_target_cols = df_tgt.columns
     all_cols = set(all_source_cols) | set(all_target_cols)
 
+    # 2. Build each column's report data independently (matched pairs
+    #    aligned side by side), then pad every column to the same
+    #    overall row count so they can sit in one wide table.
     report_columns = {}
     col_lengths = {}
 
@@ -540,14 +546,19 @@ def generate_full_comparison_report(source_path, target_path, output_path):
             report_columns[col] = ("target_only", vals)
             col_lengths[col] = len(vals)
 
-    max_len = max(col_lengths.values()) if col_lengths else 0
+    # Ensure max_len accounts for raw dataframe dimensions to prevent truncation or shifting
+    max_len = max(
+        [max(col_lengths.values()) if col_lengths else 0, len(df_src), len(df_tgt)]
+    )
 
     final_columns = {}
     for col, (kind, data) in report_columns.items():
         if kind == "both":
-            s_col = [r[1] for r in data] + [""] * (max_len - len(data))
-            t_col = [r[2] for r in data] + [""] * (max_len - len(data))
-            m_col = [r[3] for r in data] + [""] * (max_len - len(data))
+            s_col = [r[0] for r in data] + [""] * (max_len - len(data))
+            t_col = [r[1] for r in data] + [""] * (max_len - len(data))
+            # Pad rows beyond this column's real data with a blank status
+            # (not TRUE/FALSE) since there's no real comparison there.
+            m_col = [r[2] for r in data] + [""] * (max_len - len(data))
             final_columns[f"SOURCE_{col}"] = s_col
             final_columns[f"TARGET_{col}"] = t_col
             final_columns[f"MATCH_{col}"] = m_col
@@ -563,3 +574,7 @@ def generate_full_comparison_report(source_path, target_path, output_path):
     report = pd.DataFrame(final_columns)
     report.to_csv(output_path, index=False)
     print(f"Report successfully generated at: {output_path}")
+
+
+# Usage
+generate_full_comparison_report("source.csv", "target.csv", "report.csv")
