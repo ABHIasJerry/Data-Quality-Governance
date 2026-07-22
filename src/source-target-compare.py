@@ -417,6 +417,17 @@ def generate_full_comparison_report(source_path, target_path, output_path):
 generate_full_comparison_report('source.csv', 'target.csv', 'report.csv')
 
 ######################################################################################################
+# deleted the duplicates : 
+"""
+Here is exactly how duplicates are currently handled:
+
+Source Duplicates (More in Source than Target): Captured perfectly. If a value appears 3 times in Source but only 1 time in Target, the first one matches (TRUE), and the next two are printed inline as unmatched (FALSE with a blank target cell).
+
+Target Duplicates (More in Target than Source): Currently ignored. Because we removed the "target dumping" to make the columns flat, if a value appears 3 times in your Target file but only 1 time in your Source file, the extra 2 Target duplicates are completely erased from the final report.
+
+"""
+
+
 
 import pandas as pd
 
@@ -532,6 +543,132 @@ def generate_full_comparison_report(source_path, target_path, output_path):
             s_col = [r[0] for r in data] + [""] * (max_len - len(data))
             t_col = [r[1] for r in data] + [""] * (max_len - len(data))
             # Pad rows beyond this column's real data with a blank status
+            m_col = [r[2] for r in data] + [""] * (max_len - len(data))
+            final_columns[f"SOURCE_{col}"] = s_col
+            final_columns[f"TARGET_{col}"] = t_col
+            final_columns[f"MATCH_{col}"] = m_col
+        elif kind == "source_only":
+            final_columns[f"SOURCE_{col}"] = data + [""] * (max_len - len(data))
+        else:
+            final_columns[f"TARGET_{col}"] = data + [""] * (max_len - len(data))
+
+    report = pd.DataFrame(final_columns)
+    report.to_csv(output_path, index=False)
+    print(f"Report successfully generated at: {output_path}")
+
+
+# Usage
+if __name__ == "__main__":
+    generate_full_comparison_report("source.csv", "target.csv", "report.csv")
+
+################################################################################################
+
+# restored the duplicates: Because this script evaluates every column completely independently from the others, it does not keep "Row 5 of Column A" tied to "Row 5 of Column B".
+
+#If you want to capture 100% of your data (including every single duplicate in the Target file), we must add those extra Target values back to the bottom of their respective columns.
+
+import pandas as pd
+
+
+def _normalize(v):
+    """Convert a cell value to a comparable string, or None if blank/NaN."""
+    if pd.isna(v) or v == "":
+        return None
+
+    s = str(v).strip()
+    if s == "":
+        return None
+
+    try:
+        f = float(s.replace(",", ""))
+        if f.is_integer():
+            return str(int(f))
+        return ("%f" % f).rstrip("0").rstrip(".")
+    except ValueError:
+        pass
+
+    return s.lower()
+
+
+def _match_column(s_vals, t_vals):
+    """Pair up equal values between a source column and a target column."""
+    s_norm = [_normalize(v) for v in s_vals]
+    t_norm = [_normalize(v) for v in t_vals]
+    t_used = [False] * len(t_norm)
+
+    rows = []
+
+    # 1. Walk source values, match 1-to-1 with target values.
+    for sv, sn in zip(s_vals, s_norm):
+        if sn is None:
+            # A blank source cell gets its own FALSE row
+            rows.append(("", "", "FALSE"))
+            continue
+
+        match_idx = None
+        for j, tn in enumerate(t_norm):
+            if not t_used[j] and tn == sn:
+                match_idx = j
+                break
+
+        if match_idx is not None:
+            # Match found! (Handles duplicates 1-to-1)
+            t_used[match_idx] = True
+            rows.append((sv, t_vals[match_idx], "TRUE"))
+        else:
+            # Unmatched Source Value (or extra Source duplicate)
+            rows.append((sv, "", "FALSE"))
+
+    # 2. Collect Unmatched Target Values (or extra Target duplicates)
+    # We MUST append these so you do not lose row counts/data, even if it 
+    # causes varying lengths at the bottom of the sheet.
+    for used, tv, tn in zip(t_used, t_vals, t_norm):
+        if not used:
+            if tn is not None:
+                rows.append(("", tv, "FALSE"))
+
+    return rows
+
+
+def generate_full_comparison_report(source_path, target_path, output_path):
+    # 1. Load the datasets
+    df_src = pd.read_csv(source_path, encoding="utf-8", encoding_errors="ignore")
+    df_tgt = pd.read_csv(target_path, encoding="utf-8", encoding_errors="ignore")
+
+    all_source_cols = df_src.columns
+    all_target_cols = df_tgt.columns
+    all_cols = list(dict.fromkeys(list(all_source_cols) + list(all_target_cols)))
+
+    report_columns = {}
+    col_lengths = {}
+
+    # 2. Build each column independently
+    for col in all_cols:
+        if col in all_source_cols and col in all_target_cols:
+            rows = _match_column(df_src[col].tolist(), df_tgt[col].tolist())
+            report_columns[col] = ("both", rows)
+            col_lengths[col] = len(rows)
+
+        elif col in all_source_cols:
+            vals = [("" if pd.isna(v) else v) for v in df_src[col].tolist()]
+            report_columns[col] = ("source_only", vals)
+            col_lengths[col] = len(vals)
+
+        elif col in all_target_cols:
+            vals = [("" if pd.isna(v) else v) for v in df_tgt[col].tolist()]
+            report_columns[col] = ("target_only", vals)
+            col_lengths[col] = len(vals)
+
+    # Calculate absolute max length across all lists to ensure safe padding
+    max_len = max(col_lengths.values()) if col_lengths else 0
+
+    # 3. Assemble and pad the final DataFrame
+    final_columns = {}
+    for col in all_cols:
+        kind, data = report_columns[col]
+        if kind == "both":
+            s_col = [r[0] for r in data] + [""] * (max_len - len(data))
+            t_col = [r[1] for r in data] + [""] * (max_len - len(data))
             m_col = [r[2] for r in data] + [""] * (max_len - len(data))
             final_columns[f"SOURCE_{col}"] = s_col
             final_columns[f"TARGET_{col}"] = t_col
