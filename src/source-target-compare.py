@@ -495,9 +495,6 @@ def _match_column(s_vals, t_vals):
             t_used[match_idx] = True
             rows.append((sv, t_vals[match_idx], "TRUE"))
         else:
-            # Don't write this yet - queue it so it can be paired side by
-            # side with a leftover target value instead of getting its own
-            # row now and the target leftover getting a separate row later
             unmatched_s.append(sv)
 
     # 2. Collect any target values that were never matched to a source value.
@@ -507,8 +504,7 @@ def _match_column(s_vals, t_vals):
         if not used
     ]
 
-    # 3. Pair leftover source and target values side by side, row for row,
-    #    instead of stacking them as separate trailing rows.
+    # 3. Pair leftover source and target values side by side strictly per column scope
     for su, tu in zip_longest(unmatched_s, unmatched_t, fillvalue=""):
         rows.append((su, tu, "FALSE"))
 
@@ -546,10 +542,7 @@ def generate_full_comparison_report(source_path, target_path, output_path):
             report_columns[col] = ("target_only", vals)
             col_lengths[col] = len(vals)
 
-    # Ensure max_len accounts for raw dataframe dimensions to prevent truncation or shifting
-    max_len = max(
-        [max(col_lengths.values()) if col_lengths else 0, len(df_src), len(df_tgt)]
-    )
+    max_len = max(col_lengths.values()) if col_lengths else 0
 
     final_columns = {}
     for col, (kind, data) in report_columns.items():
